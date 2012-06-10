@@ -224,8 +224,7 @@ then
 	echo "Failure: Unable to copy rpt sounds"
 	exit 255
 fi
-cd..
-
+cd ..
 echo echo "STAGE 6: generic configuration files"
 echo "3 Seconds to press CTRL-C to abort..."
 sleep 3
