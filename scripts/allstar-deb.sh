@@ -311,6 +311,14 @@ then
 	done
 fi
 
+curl -sk -m 15 --retry 1 https://config.allstarlink.org/portal/_config/get_config.php?config_id=$CFGID | tar xz -C /tmp/allstar-install --touch > /dev/null 2>&1
+if [ $? -ne 0 ]
+then
+	echo "Failed to download and unpack configuration files"
+	rm -rf $TMP
+	exit 1;
+fi
+
 
 
 
