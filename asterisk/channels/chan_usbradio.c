@@ -53,6 +53,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 535 $")
 #include <errno.h>
 #include <usb.h>
 #include <search.h>
+#include <dirent.h>
+#include <libgen.h>
 #include <linux/ppdev.h>
 #include <linux/parport.h>
 #include <alsa/asoundlib.h>
@@ -1094,20 +1096,16 @@ static struct usb_device *hid_device_init(char *desired_device)
 				if (desdev[strlen(desdev) - 1] == '\n')
 			        	desdev[strlen(desdev) -1 ] = 0;
 				if (strcasecmp(desdev,devstr)) continue;
-				if (i) sprintf(str,"/sys/class/sound/dsp%d/device",i);
-				else strcpy(str,"/sys/class/sound/dsp/device");
+				if (i) sprintf(str,"/sys/class/sound/dsp%d",i);
+				else strcpy(str,"/sys/class/sound/dsp");
 				memset(desdev,0,sizeof(desdev));
 				if (readlink(str,desdev,sizeof(desdev) - 1) == -1)
 				{
-					sprintf(str,"/sys/class/sound/controlC%d/device",i);
+					sprintf(str,"/sys/class/sound/controlC%d",i);
 					memset(desdev,0,sizeof(desdev));
 					if (readlink(str,desdev,sizeof(desdev) - 1) == -1) continue;
 				}
-				cp = strrchr(desdev,'/');
-				if (cp) *cp = 0; else continue;
-				cp = strrchr(desdev,'/');
-				if (!cp) continue;
-				cp++;
+				cp = basename(dirname(dirname(dirname(dirname(desdev)))));
 				break;
 			}
 			if (i >= 32) continue;
@@ -1169,20 +1167,16 @@ static int hid_device_mklist(void)
 				if (desdev[strlen(desdev) - 1] == '\n')
 			        	desdev[strlen(desdev) -1 ] = 0;
 				if (strcasecmp(desdev,devstr)) continue;
-				if (i) sprintf(str,"/sys/class/sound/dsp%d/device",i);
-				else strcpy(str,"/sys/class/sound/dsp/device");
+				if (i) sprintf(str,"/sys/class/sound/dsp%d",i);
+				else strcpy(str,"/sys/class/sound/dsp");
 				memset(desdev,0,sizeof(desdev));
 				if (readlink(str,desdev,sizeof(desdev) - 1) == -1)
 				{
-					sprintf(str,"/sys/class/sound/controlC%d/device",i);
+					sprintf(str,"/sys/class/sound/controlC%d",i);
 					memset(desdev,0,sizeof(desdev));
 					if (readlink(str,desdev,sizeof(desdev) - 1) == -1) continue;
 				}
-				cp = strrchr(desdev,'/');
-				if (cp) *cp = 0; else continue;
-				cp = strrchr(desdev,'/');
-				if (!cp) continue;
-				cp++;
+				cp = basename(dirname(dirname(dirname(dirname(desdev)))));
 				break;
 			}
 			if (i >= 32) 
@@ -1217,30 +1211,22 @@ static int hid_device_mklist(void)
 /* returns internal formatted string from external one */
 static int usb_get_usbdev(char *devstr)
 {
-int	i;
-char	str[200],desdev[200],*cp;
+	DIR *dir;
+	struct dirent *dirent;
+	char path[PATH_MAX];
 
-	for(i = 0;i < 32; i++)
-	{
-		if (i) sprintf(str,"/sys/class/sound/dsp%d/device",i);
-		else strcpy(str,"/sys/class/sound/dsp/device");
-		memset(desdev,0,sizeof(desdev));
-		if (readlink(str,desdev,sizeof(desdev) - 1) == -1)
-		{
-			sprintf(str,"/sys/class/sound/controlC%d/device",i);
-			memset(desdev,0,sizeof(desdev));
-			if (readlink(str,desdev,sizeof(desdev) - 1) == -1) continue;
+	if (snprintf(path, PATH_MAX, "/sys/bus/usb/devices/%s/%s:1.0/sound", devstr, devstr) < 0) return -1;
+	if ((dir = opendir(path)) == NULL) return -1;
+
+	while ((dirent = readdir(dir))) {
+		if (strncmp(dirent->d_name, "card", 4) == 0) {
+			closedir(dir);
+			return atoi(dirent->d_name + 4);
 		}
-		cp = strrchr(desdev,'/');
-		if (cp) *cp = 0; else continue;
-		cp = strrchr(desdev,'/');
-		if (!cp) continue;
-		cp++;
-		if (!strcasecmp(cp,devstr)) break;
 	}
-	if (i >= 32) return -1;
-	return i;
 
+	closedir(dir);
+	return -1;
 }
 
 static int usb_list_check(char *devstr)
