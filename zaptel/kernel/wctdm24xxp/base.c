@@ -42,6 +42,7 @@ Tx Gain - W/Pre-Emphasis: -23.99 to 0.00 db
 #include <linux/errno.h>
 #include <linux/pci.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)

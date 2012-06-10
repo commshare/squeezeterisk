@@ -29,6 +29,7 @@
 #include "../zaptel.h"
 #include "../voicebus.h"
 #include <linux/version.h>
+#include <linux/workqueue.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 #include <linux/semaphore.h>
 #else

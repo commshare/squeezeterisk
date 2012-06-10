@@ -32,6 +32,8 @@
  * this program for more details.
  */
 
+#include <linux/workqueue.h>
+
 #include "zaptel.h"
 
 #include "GpakHpi.h"

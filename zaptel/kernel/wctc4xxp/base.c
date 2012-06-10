@@ -721,7 +721,11 @@ wctc4xxp_poll(struct napi_struct *napi, int budget)
 	count = wctc4xxp_net_receive(wc, budget);
 
 	if (!skb_queue_len(&wc->captured_packets)) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
 		netif_rx_complete(wc->netdev, &wc->napi);
+#else
+                napi_complete(&wc->napi);
+#endif
 	}
 	return count;
 }
@@ -818,7 +822,7 @@ wctc4xxp_net_register(struct wcdte *wc)
 	memcpy(netdev->dev_addr, our_mac, sizeof(our_mac));
 
 #	ifdef HAVE_NET_DEVICE_OPS
-	netdev->set_multicast_list = &wctc4xxp_net_set_multi;
+//	netdev->set_multicast_list = &wctc4xxp_net_set_multi;
 #	else
 	netdev->open = &wctc4xxp_net_up;
 	netdev->stop = &wctc4xxp_net_down;
@@ -912,7 +916,11 @@ wctc4xxp_net_capture_cmd(struct wcdte *wc, const struct tcb *cmd)
 #	if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	netif_rx_schedule(netdev);
 #	else
+#	if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
 	netif_rx_schedule(netdev, &wc->napi);
+#	else
+        napi_schedule(&wc->napi);
+#endif
 #	endif
 	return;
 }
@@ -2988,7 +2996,7 @@ wctc4xxp_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	init_waitqueue_head(&wc->waitq);
 
-	if (pci_set_dma_mask(wc->pdev, DMA_32BIT_MASK)) {
+	if (pci_set_dma_mask(wc->pdev, DMA_BIT_MASK(32))) {
 		release_region(wc->iobase, 0xff);
 		DTE_PRINTK(WARNING, "No suitable DMA available.\n");
 		return -EIO;
