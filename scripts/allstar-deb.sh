@@ -19,6 +19,8 @@ function promptyn
 		ANSWER=N
 	fi
 }
+echo "Removing CDROM from sources.list"
+sed -i -e "s/deb cdrom/# deb cdrom/g" /etc/apt/sources.list
 
 echo "Updating System Packages..."
 apt-get -qq update 
@@ -77,7 +79,7 @@ fi
 echo "Installing zapta..."
 echo "3 Seconds to press CTRL-C to abort..."
 sleep 3
-cd /usr/src/astsrc/zaptel
+cd /usr/src/squeezeterisk/zaptel
 ./configure
 if [ $? -gt 0 ]
 then
