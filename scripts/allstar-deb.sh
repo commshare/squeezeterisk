@@ -105,10 +105,15 @@ if [ $? -gt 0 ]
 then
         die "Unable to install misc tools"
 fi
-apt-get -qq -y libcurl4-openssl-dev
+apt-get -qq -y install curl
 if [ $? -gt 0 ]
 then
         die "Unable to install curl"
+fi
+apt-get -qq -y install libcurl4-openssl-dev
+if [ $? -gt 0 ]
+then
+        die "Unable to install libcurl"
 fi
 
 apt-get -qq -y install build-essential linux-headers-`uname -r`
