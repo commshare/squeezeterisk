@@ -151,11 +151,13 @@ then
 	echo "Failure: Unable to install asterisk configs" 
 	exit 255
 fi
+
+
 echo "STAGE 5: audio files"
 echo "3 Seconds to press CTRL-C to abort..."
 sleep 3
 echo "Copying rpt sounds..."
-cp -a $ASTSRCDIR/sounds/* /var/lib/asterisk/sounds
+cp -a sounds/* /var/lib/asterisk/sounds
 if [ $? -gt 0 ]
 then
 	echo "Failure: Unable to copy rpt sounds"
