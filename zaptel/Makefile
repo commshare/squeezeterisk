@@ -130,8 +130,7 @@ ifeq ($(BUILD_XPP),yes)
 endif
 #SUBDIRS_UTILS	+= ppp
 
-TOPDIR_MODULES:=pciradio tor2 torisa wcfxo wct1xxp wctdm wcte11xp wcusb zaptel ztd-eth ztd-loc ztdummy ztdynamic zttranscode
-SUBDIR_MODULES:=wct4xxp wctc4xxp xpp wctdm24xxp wcte12xp
+TOPDIR_MODULES:=pciradio wctdm wcusb zaptel ztdummy
 TOPDIR_MODULES+=$(MODULES_EXTRA)
 SUBDIR_MODULES+=$(SUBDIRS_EXTRA)
 BUILD_TOPDIR_MODULES:=$(filter-out $(MENUSELECT_MODULES),$(TOPDIR_MODULES))
