@@ -34,6 +34,7 @@
 #include <linux/errno.h>
 #include <linux/pci.h>
 #include <linux/proc_fs.h>
+#include <linux/sched.h>
 
 #ifdef LINUX26
 #include <linux/moduleparam.h>
