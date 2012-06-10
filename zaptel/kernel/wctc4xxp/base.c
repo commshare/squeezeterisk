@@ -60,7 +60,7 @@
 #	define ALLOC_FLAGS GFP_KERNEL
 #endif
 
-#define WARN() WARN_ON(1)
+#define WARN_ALWAYS() WARN_ON(1)
 
 #define DTE_PRINTK(_lvl, _fmt, _args...) \
 	   printk(KERN_##_lvl "%s: %s: " _fmt, THIS_MODULE->name, \
@@ -493,6 +493,18 @@ struct wcdte {
 
 };
 
+struct wcdte_netdev_priv {
+	struct wcdte *wc;
+};
+
+static inline struct wcdte *
+wcdte_from_netdev(struct net_device *netdev)
+{
+	struct wcdte_netdev_priv *priv;
+	priv = netdev_priv(netdev);
+	return priv->wc;
+}
+
 static inline void wctc4xxp_set_ready(struct wcdte *wc) {
 	set_bit(DTE_READY, &wc->flags);
 }
@@ -608,7 +620,7 @@ wctc4xxp_skb_to_cmd(struct wcdte *wc, const struct sk_buff *skb)
 static void 
 wctc4xxp_net_set_multi(struct net_device *netdev)
 {
-	struct wcdte *wc = netdev->priv;
+	struct wcdte *wc = wcdte_from_netdev(netdev);
 	DTE_DEBUG(DTE_DEBUG_GENERAL, "%s promiscuity:%d\n", 
 	   __FUNCTION__, netdev->promiscuity);
 }
@@ -616,7 +628,7 @@ wctc4xxp_net_set_multi(struct net_device *netdev)
 static int 
 wctc4xxp_net_up(struct net_device *netdev)
 {
-	struct wcdte *wc = netdev->priv;
+	struct wcdte *wc = wcdte_from_netdev(netdev);
 	DTE_DEBUG(DTE_DEBUG_GENERAL, "%s\n", __FUNCTION__);
 #if 1
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
@@ -631,7 +643,7 @@ wctc4xxp_net_up(struct net_device *netdev)
 static int 
 wctc4xxp_net_down(struct net_device *netdev)
 {
-	struct wcdte *wc = netdev->priv;
+	struct wcdte *wc = wcdte_from_netdev(netdev);
 	DTE_DEBUG(DTE_DEBUG_GENERAL, "%s\n", __FUNCTION__);
 #if 1
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
@@ -648,7 +660,7 @@ static void wctc4xxp_transmit_cmd(struct wcdte *, struct tcb *);
 static int 
 wctc4xxp_net_hard_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 {
-	struct wcdte *wc = netdev->priv;
+	struct wcdte *wc = wcdte_from_netdev(netdev);
 	struct tcb *cmd;
 
 	/* We set DO_NOT_CAPTURE because this packet was already captured by
@@ -683,7 +695,7 @@ wctc4xxp_net_receive(struct wcdte *wc, int max)
 static int 
 wctc4xxp_poll(struct net_device *netdev, int *budget)
 {
-	struct wcdte *wc = netdev->priv;
+	struct wcdte *wc = wcdte_from_netdev(netdev);
 	int count = 0;
 	int quota = min(netdev->quota, *budget);
 
@@ -718,7 +730,7 @@ wctc4xxp_poll(struct napi_struct *napi, int budget)
 static struct net_device_stats *
 wctc4xxp_net_get_stats(struct net_device *netdev)
 {
-	struct wcdte *wc = netdev->priv;
+	struct wcdte *wc = wcdte_from_netdev(netdev);
 	return &wc->net_stats;
 }
 
@@ -755,7 +767,7 @@ static void wctc4xxp_turn_on_booted_led(struct wcdte *wc);
 static int 
 wctc4xxp_net_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 {
-	struct wcdte *wc = netdev->priv;
+	struct wcdte *wc = wcdte_from_netdev(netdev);
 	switch(cmd) {
 	case 0x89f0:
 		down(&wc->chansem);
@@ -771,6 +783,17 @@ wctc4xxp_net_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 	return 0;
 }
 
+#ifdef HAVE_NET_DEVICE_OPS
+static const struct net_device_ops wctc4xxp_netdev_ops = {
+	.ndo_set_multicast_list = &wctc4xxp_net_set_multi,
+	.ndo_open = &wctc4xxp_net_up,
+	.ndo_stop = &wctc4xxp_net_down,
+	.ndo_start_xmit = &wctc4xxp_net_hard_start_xmit,
+	.ndo_get_stats = &wctc4xxp_net_get_stats,
+	.ndo_do_ioctl = &wctc4xxp_net_ioctl,
+};
+#endif
+
 /** 
  * wctc4xxp_net_register - Register a new network interface.
  * @wc: transcoder card to register the interface for.
@@ -784,20 +807,26 @@ wctc4xxp_net_register(struct wcdte *wc)
 {
 	int res;
 	struct net_device *netdev;
+	struct wcdte_netdev_priv *priv;
 	const char our_mac[] = { 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
 
-	if (!(netdev = alloc_netdev(0, wc->board_name, ether_setup))) {
+	netdev = alloc_netdev(sizeof(*priv), wc->board_name, ether_setup);
+	if (!netdev)
 		return -ENOMEM;
-	}
-
+	priv = netdev_priv(netdev);
+	priv->wc = wc;
 	memcpy(netdev->dev_addr, our_mac, sizeof(our_mac));
-	netdev->priv = wc;
+
+#	ifdef HAVE_NET_DEVICE_OPS
 	netdev->set_multicast_list = &wctc4xxp_net_set_multi;
+#	else
 	netdev->open = &wctc4xxp_net_up;
 	netdev->stop = &wctc4xxp_net_down;
 	netdev->hard_start_xmit = &wctc4xxp_net_hard_start_xmit;
 	netdev->get_stats = &wctc4xxp_net_get_stats;
 	netdev->do_ioctl = &wctc4xxp_net_ioctl;
+#	endif
+
 	netdev->promiscuity = 0;
 	netdev->flags |= IFF_NOARP;
 #	if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
@@ -2185,7 +2214,7 @@ wctc4xxp_start_dma(struct wcdte *wc)
 	
 	for (i = 0; i < DRING_SIZE; ++i) { 
 		if (!(cmd = alloc_cmd())) {
-			WARN();
+			WARN_ALWAYS();
 			return;
 		}
 		cmd->data_len = SFRAME_SIZE;
@@ -2193,7 +2222,7 @@ wctc4xxp_start_dma(struct wcdte *wc)
 			/* When we're starting the DMA, we should always be
 			 * able to fill the ring....so something is wrong
 			 * here. */
-			WARN();
+			WARN_ALWAYS();
 			free_cmd(cmd);
 			break;
 		}
@@ -2707,7 +2736,7 @@ wctc4xxp_setup_channels(struct wcdte *wc)
 {
 	int ret;
 	if ((ret=down_interruptible(&wc->chansem))) {
-		WARN();
+		WARN_ALWAYS();
 		return ret;
 	}
 	ret = __wctc4xxp_setup_channels(wc);

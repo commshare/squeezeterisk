@@ -40,7 +40,7 @@
 
 static int debug;
 LIST_HEAD(trans);
-static spinlock_t translock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(translock);
 
 EXPORT_SYMBOL(zt_transcoder_register);
 EXPORT_SYMBOL(zt_transcoder_unregister);
@@ -377,10 +377,12 @@ static long zt_tc_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned l
 	};
 }
 
+#ifndef HAVE_UNLOCKED_IOCTL
 static int zt_tc_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data)
 {
 	return (int)zt_tc_unlocked_ioctl(file, cmd, data);
 }
+#endif
 
 static int zt_tc_mmap(struct file *file, struct vm_area_struct *vma)
 {
@@ -411,14 +413,15 @@ static struct file_operations __zt_transcode_fops = {
 	owner:   THIS_MODULE,
 	open:    zt_tc_open,
 	release: zt_tc_release,
+#ifdef HAVE_UNLOCKED_IOCTL
+	unlocked_ioctl: zt_tc_unlocked_ioctl,
+#else
 	ioctl:   zt_tc_ioctl,
+#endif
 	read:    zt_tc_read,
 	write:   zt_tc_write,
 	poll:    zt_tc_poll,
 	mmap:    zt_tc_mmap,
-#if HAVE_UNLOCKED_IOCTL
-	unlocked_ioctl: zt_tc_unlocked_ioctl,
-#endif
 };
 
 static struct zt_chardev transcode_chardev = {

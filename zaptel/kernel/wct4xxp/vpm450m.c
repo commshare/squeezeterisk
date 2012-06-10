@@ -31,7 +31,7 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 #include <linux/config.h>
 #else
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 #endif
 
 /* API for Octasic access */

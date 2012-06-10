@@ -424,9 +424,10 @@ static int torisa_shutdown(struct zt_span *span)
 	if (wasrunning)
 		spansstarted--;
 	write_unlock_irqrestore(&torisa, flags);	
-	if (!spans[0].flags & ZT_FLAG_RUNNING &&
-	    !spans[1].flags & ZT_FLAG_RUNNING)
-		/* No longer in use, disable interrupts */
+	if (!(spans[0].flags & ZT_FLAG_RUNNING) &&
+		!(spans[1].flags & ZT_FLAG_RUNNING))
+
+	/* No longer in use, disable interrupts */
 		setctlreg(clockvals[syncsrc]);
 
 	if (debug)

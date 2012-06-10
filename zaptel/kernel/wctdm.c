@@ -27,9 +27,10 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/errno.h>
 #include <linux/pci.h>
 #include <linux/interrupt.h>
+#include <linux/moduleparam.h>
+#include <linux/sched.h>
 #include <asm/io.h>
 #include "proslic.h"
 #include "wctdm.h"

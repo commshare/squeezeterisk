@@ -48,18 +48,27 @@
 #include <linux/kmod.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+
+#if defined(HAVE_UNLOCKED_IOCTL) && defined(CONFIG_BKL)
+#include <linux/smp_lock.h>
+#endif
+
 #ifdef CONFIG_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif /* CONFIG_DEVFS_FS */
+
 #ifdef CONFIG_ZAPATA_NET
 #include <linux/netdevice.h>
 #endif /* CONFIG_ZAPATA_NET */
+
 #include <linux/ppp_defs.h>
+
 #ifdef CONFIG_ZAPATA_PPP
 #include <linux/netdevice.h>
 #include <linux/if.h>
 #include <linux/if_ppp.h>
 #endif
+
 #include <asm/atomic.h>
 
 #ifndef CONFIG_OLD_HDLC_API
@@ -333,7 +342,7 @@ static struct zt_dialparams global_dialparams = {
 	.mfr2_tonelen = DEFAULT_MFR2_LENGTH,
 };
 
-static int zt_chan_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data, int unit);
+static int zt_chan_ioctl(struct file *file, unsigned int cmd, unsigned long data, int unit);
 
 #if defined(CONFIG_ZAPTEL_MMX) || defined(ECHO_CAN_FP)
 /* XXX kernel_fpu_begin() is NOT exported properly (in 2.4), so we have to make
@@ -2069,7 +2078,7 @@ static ssize_t zt_chan_write(struct file *file, const char *usrbuf, size_t count
 	return amnt;
 }
 
-static int zt_ctl_open(struct inode *inode, struct file *file)
+static int zt_ctl_open(struct file *file)
 {
 	/* Nothing to do, really */
 #ifndef LINUX26
@@ -2078,7 +2087,7 @@ static int zt_ctl_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int zt_chan_open(struct inode *inode, struct file *file)
+static int zt_chan_open(struct file *file)
 {
 	/* Nothing to do here for now either */
 #ifndef LINUX26
@@ -2087,7 +2096,7 @@ static int zt_chan_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int zt_ctl_release(struct inode *inode, struct file *file)
+static int zt_ctl_release(struct file *file)
 {
 	/* Nothing to do */
 #ifndef LINUX26
@@ -2096,7 +2105,7 @@ static int zt_ctl_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int zt_chan_release(struct inode *inode, struct file *file)
+static int zt_chan_release(struct file *file)
 {
 	/* Nothing to do for now */
 #ifndef LINUX26
@@ -2157,7 +2166,7 @@ who cares what the sig bits are as long as they are stable */
 
 	/* if no span, return doing nothing */
 	if (!chan->span) return;
-	if (!chan->span->flags & ZT_FLAG_RBS) {
+	if (!(chan->span->flags & ZT_FLAG_RBS)) {
 		printk("zt_rbs: Tried to set RBS hook state on non-RBS channel %s\n", chan->name);
 		return;
 	}
@@ -2420,7 +2429,7 @@ static int initialize_channel(struct zt_chan *chan)
 	return 0;
 }
 
-static int zt_timing_open(struct inode *inode, struct file *file)
+static int zt_timing_open(struct file *file)
 {
 	struct zt_timer *t;
 	unsigned long flags;
@@ -2441,7 +2450,7 @@ static int zt_timing_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int zt_timer_release(struct inode *inode, struct file *file)
+static int zt_timer_release(struct file *file)
 {
 	struct zt_timer *t, *cur, *prev;
 	unsigned long flags;
@@ -2475,7 +2484,7 @@ static int zt_timer_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int zt_specchan_open(struct inode *inode, struct file *file, int unit, int inc)
+static int zt_specchan_open(struct file *file, int unit, int inc)
 {
 	int res = 0;
 
@@ -2520,7 +2529,7 @@ static int zt_specchan_open(struct inode *inode, struct file *file, int unit, in
 	return res;
 }
 
-static int zt_specchan_release(struct inode *node, struct file *file, int unit)
+static int zt_specchan_release(struct file *file, int unit)
 {
 	int res=0;
 	unsigned long flags;
@@ -2588,7 +2597,7 @@ static int zt_open(struct inode *inode, struct file *file)
 	struct zt_chan *chan;
 	/* Minor 0: Special "control" descriptor */
 	if (!unit) 
-		return zt_ctl_open(inode, file);
+		return zt_ctl_open(file);
 	if (unit == 250) {
 		if (!zt_transcode_fops)
 			if (request_module("zttranscode")) {
@@ -2612,26 +2621,26 @@ static int zt_open(struct inode *inode, struct file *file)
 	}
 	if (unit == 253) {
 		if (maxspans) {
-			return zt_timing_open(inode, file);
+			return zt_timing_open(file);
 		} else {
 			return -ENXIO;
 		}
 	}
 	if (unit == 254)
-		return zt_chan_open(inode, file);
+		return zt_chan_open(file);
 	if (unit == 255) {
 		if (maxspans) {
 			chan = zt_alloc_pseudo();
 			if (chan) {
 				file->private_data = chan;
-				return zt_specchan_open(inode, file, chan->channo, 1);
+				return zt_specchan_open(file, chan->channo, 1);
 			} else {
 				return -ENXIO;
 			}
 		} else
 			return -ENXIO;
 	}
-	return zt_specchan_open(inode, file, unit, 1);
+	return zt_specchan_open(file, unit, 1);
 }
 
 #if 0
@@ -2640,7 +2649,7 @@ static int zt_open(struct inode *inode, struct file *file)
 	int res;
 	unsigned long flags;
 	spin_lock_irqsave(&bigzaplock, flags);
-	res = __zt_open(inode, file);
+	res = __zt_open(file);
 	spin_unlock_irqrestore(&bigzaplock, flags);
 	return res;
 }
@@ -3123,9 +3132,9 @@ static int zt_release(struct inode *inode, struct file *file)
 	struct zt_chan *chan;
 
 	if (!unit) 
-		return zt_ctl_release(inode, file);
+		return zt_ctl_release(file);
 	if (unit == 253) {
-		return zt_timer_release(inode, file);
+		return zt_timer_release(file);
 	}
 	if (unit == 250) {
 		/* We should not be here because the zttranscode.ko module
@@ -3137,14 +3146,14 @@ static int zt_release(struct inode *inode, struct file *file)
 	if (unit == 254) {
 		chan = file->private_data;
 		if (!chan)
-			return zt_chan_release(inode, file);
+			return zt_chan_release(file);
 		else
-			return zt_specchan_release(inode, file, chan->channo);
+			return zt_specchan_release(file, chan->channo);
 	}
 	if (unit == 255) {
 		chan = file->private_data;
 		if (chan) {
-			res = zt_specchan_release(inode, file, chan->channo);
+			res = zt_specchan_release(file, chan->channo);
 			zt_free_pseudo(chan);
 		} else {
 			printk("Pseudo release and no private data??\n");
@@ -3152,7 +3161,7 @@ static int zt_release(struct inode *inode, struct file *file)
 		}
 		return res;
 	}
-	return zt_specchan_release(inode, file, unit);
+	return zt_specchan_release(file, unit);
 }
 
 #if 0
@@ -3162,7 +3171,7 @@ static int zt_release(struct inode *inode, struct file *file)
 	unsigned long flags;
 	int res;
 	spin_lock_irqsave(&bigzaplock, flags);
-	res = __zt_release(inode, file);
+	res = __zt_release(file);
 	spin_unlock_irqrestore(&bigzaplock, flags);
 	return res;
 }
@@ -3230,7 +3239,7 @@ void zt_alarm_notify(struct zt_span *span)
 		return -ENXIO; \
 } while(0)
 
-static int zt_timer_ioctl(struct inode *node, struct file *file, unsigned int cmd, unsigned long data, struct zt_timer *timer)
+static int zt_timer_ioctl(struct file *file, unsigned int cmd, unsigned long data, struct zt_timer *timer)
 {
 	int j;
 	unsigned long flags;
@@ -3279,7 +3288,7 @@ static int zt_timer_ioctl(struct inode *node, struct file *file, unsigned int cm
 	return 0;
 }
 
-static int zt_common_ioctl(struct inode *node, struct file *file, unsigned int cmd, unsigned long data, int unit)
+static int zt_common_ioctl(struct file *file, unsigned int cmd, unsigned long data, int unit)
 {
 	union {
 		struct zt_gains gain;
@@ -3640,7 +3649,7 @@ static void recalc_slaves(struct zt_chan *chan)
 #endif
 }
 
-static int zt_ctl_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data)
+static int zt_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long data)
 {
 	/* I/O CTL's for control interface */
 	int i,j;
@@ -3658,7 +3667,7 @@ static int zt_ctl_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		if (copy_from_user(&ind, (struct zt_indirect_data *)data, sizeof(ind)))
 			return -EFAULT;
 		VALID_CHANNEL(ind.chan);
-		return zt_chan_ioctl(inode, file, ind.op, (unsigned long) ind.data, ind.chan);
+		return zt_chan_ioctl(file, ind.op, (unsigned long) ind.data, ind.chan);
 	}
 	case ZT_SPANCONFIG:
 	{
@@ -4082,7 +4091,7 @@ static int zt_ctl_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		return hpec_license_ioctl(cmd, data);
 #endif /* defined(ECHO_CAN_HPEC) */
 	default:
-		return zt_common_ioctl(inode, file, cmd, data, 0);
+		return zt_common_ioctl(file, cmd, data, 0);
 	}
 	return 0;
 }
@@ -4144,7 +4153,7 @@ static int ioctl_zt_dial(struct zt_chan *chan, unsigned long data)
 	return rv;
 }
 
-static int zt_chanandpseudo_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data, int unit)
+static int zt_chanandpseudo_ioctl(struct file *file, unsigned int cmd, unsigned long data, int unit)
 {
 	struct zt_chan *chan = chans[unit];
 	union {
@@ -4622,7 +4631,7 @@ static int zt_chanandpseudo_ioctl(struct inode *inode, struct file *file, unsign
 		break;
 	default:
 		/* Check for common ioctl's and private ones */
-		rv = zt_common_ioctl(inode, file, cmd, data, unit);
+		rv = zt_common_ioctl(file, cmd, data, unit);
 		/* if no span, just return with value */
 		if (!chan->span) return rv;
 		if ((rv == -ENOTTY) && chan->span->ioctl) 
@@ -4756,7 +4765,7 @@ exit_with_free:
 	return ret;
 }
 
-static int zt_chan_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data, int unit)
+static int zt_chan_ioctl(struct file *file, unsigned int cmd, unsigned long data, int unit)
 {
 	struct zt_chan *chan = chans[unit];
 	unsigned long flags;
@@ -5103,12 +5112,12 @@ static int zt_chan_ioctl(struct inode *inode, struct file *file, unsigned int cm
 		break;
 #endif
 	default:
-		return zt_chanandpseudo_ioctl(inode, file, cmd, data, unit);
+		return zt_chanandpseudo_ioctl(file, cmd, data, unit);
 	}
 	return 0;
 }
 
-static int zt_prechan_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data, int unit)
+static int zt_prechan_ioctl(struct file *file, unsigned int cmd, unsigned long data, int unit)
 {
 	struct zt_chan *chan = file->private_data;
 	int channo;
@@ -5124,7 +5133,7 @@ static int zt_prechan_ioctl(struct inode *inode, struct file *file, unsigned int
 			return -EINVAL;
 		if (channo > ZT_MAX_CHANNELS)
 			return -EINVAL;
-		res = zt_specchan_open(inode, file, channo, 0);
+		res = zt_specchan_open(file, channo, 0);
 		if (!res) {
 			/* Setup the pointer for future stuff */
 			chan = chans[channo];
@@ -5139,46 +5148,84 @@ static int zt_prechan_ioctl(struct inode *inode, struct file *file, unsigned int
 	return 0;
 }
 
-static int zt_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data)
+static long zt_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long data)
 {
 	int unit = UNIT(file);
 	struct zt_chan *chan;
 	struct zt_timer *timer;
+	int ret;
 
-	if (!unit)
-		return zt_ctl_ioctl(inode, file, cmd, data);
+#if defined(HAVE_UNLOCKED_IOCTL) && defined(CONFIG_BKL)
+	lock_kernel();
+#endif
+
+	if (!unit) {
+		ret = zt_ctl_ioctl(file, cmd, data);
+		goto unlock_exit;
+	}
 
 	if (unit == 250) {
 		/* zttranscode should have updated the file_operations on
 		 * this file object on open, so we shouldn't be here. */
 		WARN_ON(1);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto unlock_exit;
 	}
 
 	if (unit == 253) {
 		timer = file->private_data;
 		if (timer)
-			return zt_timer_ioctl(inode, file, cmd, data, timer);
+			ret = zt_timer_ioctl(file, cmd, data, timer);
 		else
-			return -EINVAL;
+			ret = -EINVAL;
+		goto unlock_exit;
 	}
 	if (unit == 254) {
 		chan = file->private_data;
 		if (chan)
-			return zt_chan_ioctl(inode, file, cmd, data, chan->channo);
+			ret = zt_chan_ioctl(file, cmd, data, chan->channo);
 		else
-			return zt_prechan_ioctl(inode, file, cmd, data, unit);
+			ret = zt_prechan_ioctl(file, cmd, data, unit);
+		goto unlock_exit;
 	}
 	if (unit == 255) {
 		chan = file->private_data;
 		if (!chan) {
 			printk("No pseudo channel structure to read?\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto unlock_exit;
 		}
-		return zt_chanandpseudo_ioctl(inode, file, cmd, data, chan->channo);
+		ret = zt_chanandpseudo_ioctl(file, cmd, data, chan->channo);
+		goto unlock_exit;
 	}
-	return zt_chan_ioctl(inode, file, cmd, data, unit);
+
+	ret = zt_chan_ioctl(file, cmd, data, unit);
+
+unlock_exit:
+#if defined(HAVE_UNLOCKED_IOCTL) && defined(CONFIG_BKL)
+	unlock_kernel();
+#endif
+	return ret;
 }
+
+#ifndef HAVE_UNLOCKED_IOCTL
+static int zt_ioctl(struct inode *inode, struct file *file,
+		unsigned int cmd, unsigned long data)
+{
+   	return zt_unlocked_ioctl(file, cmd, data);
+}
+#endif
+
+#ifdef HAVE_COMPAT_IOCTL
+static long zt_ioctl_compat(struct file *file, unsigned int cmd,
+		unsigned long data)
+{
+	if (cmd == ZT_SFCONFIG)
+		return -ENOTTY; /* Not supported yet */
+
+	return zt_unlocked_ioctl(file, cmd, data);
+}
+#endif
 
 int zt_register(struct zt_span *span, int prefmaster)
 {
@@ -7647,7 +7694,14 @@ static struct file_operations zt_fops = {
 	llseek: NULL,
 	open: zt_open,
 	release: zt_release,
+#ifdef HAVE_UNLOCKED_IOCTL
+	unlocked_ioctl: zt_unlocked_ioctl,
+#ifdef HAVE_COMPAT_IOCTL
+	compat_ioctl: zt_ioctl_compat,
+#endif
+#else
 	ioctl: zt_ioctl,
+#endif
 	read: zt_read,
 	write: zt_write,
 	poll: zt_poll,

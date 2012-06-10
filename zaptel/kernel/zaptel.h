@@ -74,6 +74,10 @@
 #define ZAP_IRQ_HANDLER(a) static void a(int irq, void *dev_id, struct pt_regs *regs)
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
+#define HAVE_NET_DEVICE_OPS
+#endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
 #define ZAP_IRQ_SHARED IRQF_SHARED
 #define ZAP_IRQ_DISABLED IRQF_DISABLED
