@@ -1,4 +1,9 @@
 #! /bin/bash
+function die {
+	echo "Fatal error: $1"
+	exit 255
+}
+
 function promptnum
 {
 	ANSWER=""
