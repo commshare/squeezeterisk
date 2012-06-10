@@ -19,9 +19,11 @@ function promptyn
 		ANSWER=N
 	fi
 }
-echo "Removing CDROM from sources.list"
+echo "STAGE 1: update system files"
+echo "3 Seconds to press CTRL-C to abort..."
+sleep 3
+echo "Removing cdrom from sources.list"
 sed -i -e "s/deb cdrom/# deb cdrom/g" /etc/apt/sources.list
-
 echo "Updating System Packages..."
 apt-get -qq update 
 if [ $? -gt 0 ]
@@ -74,9 +76,7 @@ then
 	sleep 30
 	exit 255
 fi
-
-
-echo "Installing zapta..."
+echo "STAGE 2: zaptel"
 echo "3 Seconds to press CTRL-C to abort..."
 sleep 3
 cd /usr/src/squeezeterisk/zaptel
@@ -101,6 +101,64 @@ make config
 if [ $? -gt 0 ]
 then
 	echo "Failure: Unable to install zaptel configs"
+	exit 255
+fi
+/etc/init.d/zaptel start
+
+echo "STAGE 3: libpri"
+echo "3 Seconds to press CTRL-C to abort..."
+sleep 3
+cd libpri
+make
+if [ $? -gt 0 ]
+then
+	echo "Failure: Unable to compile libpri"
+	exit 255
+fi
+make install
+if [ $? -gt 0 ]
+then
+	echo "Failure: Unable to install LibPRI 2"
+	exit 255
+fi
+cd ..
+
+echo "STAGE 4: asterisk"
+echo "3 Seconds to press CTRL-C to abort..."
+sleep 3
+cd asterisk
+./configure
+if [ $? -gt 0 ]
+then
+	echo "Failure: Unable to configure asterisk"
+	exit 255
+fi
+make
+if [ $? -gt 0 ]
+then
+	echo "Failure: Unable to compile asterisk"
+	exit 255
+fi
+make install
+if [ $? -gt 0 ]
+then
+	echo "Failure: Unable to install asterisk"
+	exit 255
+fi
+make config
+if [ $? -gt 0 ]
+then
+	echo "Failure: Unable to install asterisk configs" 
+	exit 255
+fi
+echo "STAGE 5: audio files"
+echo "3 Seconds to press CTRL-C to abort..."
+sleep 3
+echo "Copying rpt sounds..."
+cp -a $ASTSRCDIR/sounds/* /var/lib/asterisk/sounds
+if [ $? -gt 0 ]
+then
+	echo "Failure: Unable to copy rpt sounds"
 	exit 255
 fi
 
