@@ -110,11 +110,19 @@ if [ $? -gt 0 ]
 then
         die "Unable to install curl"
 fi
+
 apt-get -qq -y install libcurl4-openssl-dev
 if [ $? -gt 0 ]
 then
         die "Unable to install libcurl"
 fi
+
+apt-get -qq -y install openssh-server
+if [ $? -gt 0 ]
+then
+        die "Unable to install openssh-server"
+fi
+
 
 apt-get -qq -y install build-essential linux-headers-`uname -r`
 if [ $? -gt 0 ]
