@@ -1,9 +1,18 @@
 THIS IS THE SOURCES FOR ASTERISK, ZAPTEL, AND OTHER RELATED FILED FOR INSTALLATION OF AN ALLSTAR NODE ON DEBIAN SQUEEZE
 BUILT AND TESTING ON A CLEAN BARBONES INSTALL OF debian-6.0.5-amd64-CD-1.iso IN VIRTUALBOX 
-BUILD INSTRUCTIONS
+
+INSTRUCTIONS
 ----------------------
 
+Install debian Squeeze via debian-6.0.5-(arch)-cd-1.iso
+Select "Yes" when asked "Use a network mirror?"
+Deselect "Desktop Environment"
+Select a network mirror close to to you
+Only Selected package is "Standard system"
 
+
+POST INSTALL
+-----------------------
 apt-get install git-core
 cd /usr/src
 git clone https://github.com/KD8EYF/squeezeterisk.git
